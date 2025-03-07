@@ -1,0 +1,31 @@
+# Ignorowanie plików kompilacji Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignorowanie wirtualnych środowisk
+venv/
+env/
+.venv/
+.virtualenv/
+
+# Ignorowanie plików konfiguracyjnych IDE
+.idea/
+.vscode/
+
+# Ignorowanie plików z cache
+*.log
+*.pot
+*.py[cod]
+
+# Ignorowanie plików zależności
+*.egg-info/
+dist/
+build/
+
+# Ignorowanie plików konfiguracji Pytest
+.pytest_cache/
+
+# Ignorowanie plików systemowych
+.DS_Store
+Thumbs.db
