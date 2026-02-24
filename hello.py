@@ -2,6 +2,8 @@ import api_excercises.authentication as auth
 import requests
 import time
 
+# auth.register_user()
+
 bearerToken = auth.generate_bearer_token()
 
 time.sleep(1)
