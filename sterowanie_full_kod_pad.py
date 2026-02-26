@@ -9,23 +9,30 @@ if not pi.connected:
     print("Brak połączenia z pigpio!")
     exit()
 
-pwmFreq = 20000  # 20 kHz - dobre dla silników DC
+pwmFreq = 20000  # 20 kHz dla silników
 
-# ====== BCM NUMERY PINÓW (poprawione!) ======
-PWMA = 18   # BOARD 12
-AIN2 = 24   # BOARD 18
-AIN1 = 23   # BOARD 16
-STBY = 25   # BOARD 22
-BIN1 = 22   # BOARD 15
-BIN2 = 27   # BOARD 13
-PWMB = 17   # BOARD 11
+# ====== PINY SILNIKÓW ======
+PWMA = 18
+AIN2 = 24
+AIN1 = 23
+STBY = 25
+BIN1 = 22
+BIN2 = 27
+PWMB = 17
 
-pins = [PWMA, AIN2, AIN1, STBY, BIN1, BIN2, PWMB]
+# ====== SERWO ======
+SERVO_PIN = 12
+SERVO_CENTER = 1500
+SERVO_MIN = 1000
+SERVO_MAX = 2000
+SERVO_DEADZONE = 0.1
 
-for pin in pins:
+motorPins = [PWMA, AIN2, AIN1, STBY, BIN1, BIN2, PWMB]
+
+for pin in motorPins:
     pi.set_mode(pin, pigpio.OUTPUT)
 
-# Konfiguracja PWM
+# PWM konfiguracja silników
 pi.set_PWM_frequency(PWMA, pwmFreq)
 pi.set_PWM_frequency(PWMB, pwmFreq)
 
@@ -35,16 +42,19 @@ pi.set_PWM_range(PWMB, 1000)
 pi.set_PWM_dutycycle(PWMA, 0)
 pi.set_PWM_dutycycle(PWMB, 0)
 
-pi.write(STBY, 0)  # sterownik wyłączony na start
+pi.write(STBY, 0)
 
-# ================= GAMEPAD SETUP =================
+# Serwo start w centrum
+pi.set_servo_pulsewidth(SERVO_PIN, SERVO_CENTER)
+
+# ================= GAMEPAD =================
 
 gamepad = InputDevice('/dev/input/event11')
-
-print("Sterowanie padem Xbox aktywne (pigpio)")
+print("RC aktywne: lewa gałka = napęd, prawa = skręt")
 
 x_val = 0
 y_val = 0
+steer_val = 0
 DEADZONE = 0.2
 
 # ================= MOTOR CONTROL =================
@@ -53,30 +63,14 @@ def setMotor(motor, power):
     power = max(-1, min(1, power))
     speed = int(abs(power) * 1000)
 
-    if motor == 0:  # Motor A
-        if power > 0:
-            pi.write(AIN1, 1)
-            pi.write(AIN2, 0)
-        elif power < 0:
-            pi.write(AIN1, 0)
-            pi.write(AIN2, 1)
-        else:
-            pi.write(AIN1, 0)
-            pi.write(AIN2, 0)
-
+    if motor == 0:
+        pi.write(AIN1, power > 0)
+        pi.write(AIN2, power < 0)
         pi.set_PWM_dutycycle(PWMA, speed)
 
-    elif motor == 1:  # Motor B
-        if power > 0:
-            pi.write(BIN1, 1)
-            pi.write(BIN2, 0)
-        elif power < 0:
-            pi.write(BIN1, 0)
-            pi.write(BIN2, 1)
-        else:
-            pi.write(BIN1, 0)
-            pi.write(BIN2, 0)
-
+    elif motor == 1:
+        pi.write(BIN1, power > 0)
+        pi.write(BIN2, power < 0)
         pi.set_PWM_dutycycle(PWMB, speed)
 
 
@@ -85,15 +79,26 @@ def stopMotors():
     setMotor(1, 0)
     pi.write(STBY, 0)
 
+# ================= STEERING =================
 
-# ================= MOVEMENT LOGIC =================
+def setSteering(value):
+    value = value / 32767
+
+    if abs(value) < SERVO_DEADZONE:
+        value = 0
+
+    pulse = SERVO_CENTER + value * (SERVO_MAX - SERVO_CENTER)
+    pulse = max(SERVO_MIN, min(SERVO_MAX, pulse))
+
+    pi.set_servo_pulsewidth(SERVO_PIN, pulse)
+
+# ================= MOVEMENT =================
 
 def handleMovement():
     global x_val, y_val
 
     x = x_val / 32767
     y = y_val / 32767
-
     y = -y
 
     if abs(x) < DEADZONE:
@@ -114,30 +119,35 @@ def handleMovement():
         setMotor(0, left)
         setMotor(1, right)
 
-
 # ================= MAIN LOOP =================
 
 def main():
-    global x_val, y_val
+    global x_val, y_val, steer_val
 
     try:
         for event in gamepad.read_loop():
 
             if event.type == ecodes.EV_ABS:
 
+                # LEWA GAŁKA
                 if event.code == ecodes.ABS_X:
                     x_val = event.value
 
                 if event.code == ecodes.ABS_Y:
                     y_val = event.value
 
+                # PRAWA GAŁKA (skręt)
+                if event.code == ecodes.ABS_RX:
+                    steer_val = event.value
+                    setSteering(steer_val)
+
                 handleMovement()
 
     except KeyboardInterrupt:
         print("STOP")
         stopMotors()
+        pi.set_servo_pulsewidth(SERVO_PIN, 0)
         pi.stop()
-
 
 # ================= START =================
 
