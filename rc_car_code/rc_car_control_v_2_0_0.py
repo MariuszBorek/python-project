@@ -130,7 +130,7 @@ def main():
     joy.init()
 
     print("🎮 Xbox controller connected")
-    print("RT = gaz | LT = cofanie | RX = skręt | B = hamulec | START = exit")
+    print("RT = gaz | LT = cofanie | LX = skręt | B = hamulec | START = exit")
 
     try:
         while True:
@@ -144,7 +144,7 @@ def main():
             rc.set_throttle(throttle)
 
             # --- SKRĘT ---
-            steering = joy.get_axis(3)       # RX
+            steering = joy.get_axis(0)       # LX
             rc.set_steering(steering)
 
             # --- HAMULEC ---
